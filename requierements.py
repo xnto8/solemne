@@ -3,19 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Datos de Países - Visualización</title>
+    <title>Visualización de Países</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>Datos de Países</h1>
+        <h1>Visualización de Datos de Países</h1>
         <div>
             <label for="dataSelector">Seleccionar dato:</label>
             <select id="dataSelector">
                 <option value="population">Población</option>
                 <option value="area">Área</option>
                 <option value="languages">Lenguajes</option>
+            </select>
+        </div>
+        <div>
+            <label for="chartType">Seleccionar tipo de gráfico:</label>
+            <select id="chartType">
+                <option value="bar">Gráfico de barras</option>
+                <option value="line">Gráfico de líneas</option>
+                <option value="pie">Gráfico de torta</option>
             </select>
         </div>
         <button id="loadData">Cargar Datos</button>
@@ -38,7 +46,7 @@ body {
 .container {
     text-align: center;
     width: 80%;
-    max-width: 600px;
+    max-width: 800px;
 }
 
 canvas {
@@ -46,15 +54,21 @@ canvas {
     height: 400px;
     margin-top: 20px;
 }
+
+select {
+    padding: 8px;
+    margin: 10px;
+}
 document.getElementById('loadData').addEventListener('click', async () => {
-    // Obtener el valor seleccionado
+    // Obtener los valores seleccionados por el usuario
     const selectedData = document.getElementById('dataSelector').value;
+    const selectedChart = document.getElementById('chartType').value;
     
     // Obtener los datos de la API
     const response = await fetch('https://restcountries.com/v3.1/all');
     const countries = await response.json();
-    
-    // Preparar los datos
+
+    // Preparar los datos para el gráfico
     const countryNames = [];
     const countryData = [];
 
@@ -62,7 +76,7 @@ document.getElementById('loadData').addEventListener('click', async () => {
         const name = country.name.common;
         let dataValue = 0;
 
-        // Definir qué dato mostrar dependiendo de la selección del usuario
+        // Obtener el dato correspondiente según la selección
         switch (selectedData) {
             case 'population':
                 dataValue = country.population || 0;
@@ -79,11 +93,15 @@ document.getElementById('loadData').addEventListener('click', async () => {
         countryData.push(dataValue);
     });
 
-    // Generar gráfico
-    generateChart(countryNames, countryData, selectedData);
+    // Limitar los resultados a los primeros 10 países para no saturar el gráfico
+    countryNames.splice(10);
+    countryData.splice(10);
+
+    // Generar el gráfico con la función correspondiente
+    generateChart(countryNames, countryData, selectedChart, selectedData);
 });
 
-function generateChart(labels, data, selectedData) {
+function generateChart(labels, data, chartType, selectedData) {
     const ctx = document.getElementById('countryChart').getContext('2d');
 
     // Eliminar el gráfico anterior si existe
@@ -91,26 +109,36 @@ function generateChart(labels, data, selectedData) {
         window.chartInstance.destroy();
     }
 
-    // Crear un nuevo gráfico
+    // Crear el gráfico según el tipo seleccionado
     window.chartInstance = new Chart(ctx, {
-        type: 'bar',  // Tipo de gráfico (barra)
+        type: chartType, // Tipo de gráfico
         data: {
-            labels: labels.slice(0, 10),  // Mostrar solo los 10 primeros países para evitar saturar la pantalla
+            labels: labels,  // Nombres de los países
             datasets: [{
                 label: `${selectedData.charAt(0).toUpperCase() + selectedData.slice(1)} de Países`,
-                data: data.slice(0, 10),
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                data: data,
+                backgroundColor: chartType === 'pie' ? generateRandomColors(data.length) : 'rgba(75, 192, 192, 0.2)',
                 borderColor: 'rgba(75, 192, 192, 1)',
                 borderWidth: 1
             }]
         },
         options: {
-            scales: {
+            scales: chartType !== 'pie' ? {
                 y: {
                     beginAtZero: true
                 }
-            }
+            } : {},
+            responsive: true
         }
     });
 }
 
+// Función para generar colores aleatorios para el gráfico de torta
+function generateRandomColors(num) {
+    const colors = [];
+    for (let i = 0; i < num; i++) {
+        const color = `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, 0.7)`;
+        colors.push(color);
+    }
+    return colors;
+}
