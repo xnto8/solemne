@@ -1,3 +1,8 @@
+/index.html
+/styles.css
+/js/app.js
+/js/chart.js
+/js/ui.js
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -27,10 +32,20 @@
             </select>
         </div>
         <button id="loadData">Cargar Datos</button>
+        
+        <!-- Cargador de datos -->
+        <div id="loader" class="loader" style="display: none;">Cargando...</div>
+
+        <!-- Canvas para el gráfico -->
         <canvas id="countryChart"></canvas>
+
+        <!-- Mensaje de error -->
+        <div id="errorMessage" class="error-message" style="display: none;">Hubo un error al cargar los datos. Intenta nuevamente.</div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/chart.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
 body {
@@ -49,71 +64,69 @@ body {
     max-width: 800px;
 }
 
+select {
+    padding: 8px;
+    margin: 10px;
+}
+
 canvas {
     width: 100%;
     height: 400px;
     margin-top: 20px;
 }
 
-select {
-    padding: 8px;
-    margin: 10px;
+.loader {
+    font-size: 18px;
+    color: #007bff;
+    font-weight: bold;
 }
-document.getElementById('loadData').addEventListener('click', async () => {
-    // Obtener los valores seleccionados por el usuario
-    const selectedData = document.getElementById('dataSelector').value;
-    const selectedChart = document.getElementById('chartType').value;
-    
-    // Obtener los datos de la API
-    const response = await fetch('https://restcountries.com/v3.1/all');
-    const countries = await response.json();
 
-    // Preparar los datos para el gráfico
-    const countryNames = [];
-    const countryData = [];
+.error-message {
+    color: red;
+    font-weight: bold;
+}
 
-    countries.forEach(country => {
-        const name = country.name.common;
-        let dataValue = 0;
+button {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
 
-        // Obtener el dato correspondiente según la selección
-        switch (selectedData) {
-            case 'population':
-                dataValue = country.population || 0;
-                break;
-            case 'area':
-                dataValue = country.area || 0;
-                break;
-            case 'languages':
-                dataValue = Object.keys(country.languages || {}).length || 0;
-                break;
-        }
+button:hover {
+    background-color: #0056b3;
+}
+// Mostrar el cargador
+function showLoader() {
+    document.getElementById('loader').style.display = 'block';
+    document.getElementById('errorMessage').style.display = 'none';
+    document.getElementById('countryChart').style.display = 'none';
+}
 
-        countryNames.push(name);
-        countryData.push(dataValue);
-    });
+// Ocultar el cargador
+function hideLoader() {
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('countryChart').style.display = 'block';
+}
 
-    // Limitar los resultados a los primeros 10 países para no saturar el gráfico
-    countryNames.splice(10);
-    countryData.splice(10);
-
-    // Generar el gráfico con la función correspondiente
-    generateChart(countryNames, countryData, selectedChart, selectedData);
-});
-
+// Mostrar mensaje de error
+function showError() {
+    document.getElementById('errorMessage').style.display = 'block';
+}
+// Generar gráfico
 function generateChart(labels, data, chartType, selectedData) {
     const ctx = document.getElementById('countryChart').getContext('2d');
 
-    // Eliminar el gráfico anterior si existe
+    // Eliminar gráfico anterior si existe
     if (window.chartInstance) {
         window.chartInstance.destroy();
     }
 
-    // Crear el gráfico según el tipo seleccionado
     window.chartInstance = new Chart(ctx, {
-        type: chartType, // Tipo de gráfico
+        type: chartType,
         data: {
-            labels: labels,  // Nombres de los países
+            labels: labels,
             datasets: [{
                 label: `${selectedData.charAt(0).toUpperCase() + selectedData.slice(1)} de Países`,
                 data: data,
@@ -142,3 +155,49 @@ function generateRandomColors(num) {
     }
     return colors;
 }
+document.getElementById('loadData').addEventListener('click', async () => {
+    const selectedData = document.getElementById('dataSelector').value;
+    const selectedChart = document.getElementById('chartType').value;
+
+    showLoader();
+
+    try {
+        const response = await fetch('https://restcountries.com/v3.1/all');
+        const countries = await response.json();
+
+        const countryNames = [];
+        const countryData = [];
+
+        countries.forEach(country => {
+            const name = country.name.common;
+            let dataValue = 0;
+
+            switch (selectedData) {
+                case 'population':
+                    dataValue = country.population || 0;
+                    break;
+                case 'area':
+                    dataValue = country.area || 0;
+                    break;
+                case 'languages':
+                    dataValue = Object.keys(country.languages || {}).length || 0;
+                    break;
+            }
+
+            countryNames.push(name);
+            countryData.push(dataValue);
+        });
+
+        // Limitar a los primeros 10 países
+        countryNames.splice(10);
+        countryData.splice(10);
+
+        // Generar gráfico
+        generateChart(countryNames, countryData, selectedChart, selectedData);
+        hideLoader();
+    } catch (error) {
+        console.error('Error al cargar los datos', error);
+        showError();
+        hideLoader();
+    }
+});
